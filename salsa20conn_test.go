@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"io"
 	"testing"
+
+	"github.com/templexxx/xor"
 )
 
 func newSalsa20CipherPair() (cipher.Stream, cipher.Stream) {
@@ -91,4 +93,17 @@ func TestSalsa20Count92(t *testing.T) {
 
 	testSizeCounter(size, cs1, cs2, t)
 
+}
+
+func TestXor(t *testing.T) {
+	size := 92
+	b0 := make([]byte, size)
+	b1 := make([]byte, size)
+	b2 := make([]byte, size)
+
+	io.ReadFull(rand.Reader, b0)
+	io.ReadFull(rand.Reader, b1)
+	io.ReadFull(rand.Reader, b2)
+
+	xor.BytesSrc0(b0[30:], b1[31:], b2[:29])
 }

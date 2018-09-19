@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/salsa20"
 )
 
-const blocksize = 32
+const blocksize = 64
 
 type salsa20Stream struct {
 	nonce []byte
@@ -93,7 +93,8 @@ func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
 			return
 		}
 
-		xor.BytesSrc1(dst, src, tbl[s.pos:])
+		//xor.BytesSrc1(dst, src, tbl[s.pos:])
+		safeXORBytes(dst, src, s.tbl[s.pos:], blocksize-s.pos)
 		copy(s.pb[s.pos:blocksize], dst[0:left])
 		dst = dst[left:]
 		src = src[left:]
@@ -132,7 +133,9 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 			return
 		}
 
-		xor.BytesSrc1(dst, src, s.tbl[s.pos:])
+		//xor.BytesSrc1(dst, src, s.tbl[s.pos:])
+		safeXORBytes(dst, src, s.tbl[s.pos:], blocksize-s.pos)
+
 		copy(s.pb[s.pos:blocksize], src[0:left])
 		dst = dst[left:]
 		src = src[left:]
