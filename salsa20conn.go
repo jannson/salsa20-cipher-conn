@@ -2,6 +2,7 @@ package salsa20conn
 
 import (
 	"crypto/cipher"
+	"log"
 
 	"github.com/templexxx/xor"
 	"golang.org/x/crypto/salsa20"
@@ -36,7 +37,7 @@ func newSalsa20Stream(key []byte, nonce []byte, iv []byte) cipher.Stream {
 }
 
 func (s *salsa20Stream) XORKeyStream(dst, src []byte) {
-	//log.Println("xor key", s.pos, len(dst), len(src))
+	log.Println("xor key", s.pos, len(dst), len(src))
 	const blocksize = 16
 	n := len(dst)
 	tbl := s.buf
@@ -73,18 +74,18 @@ func (s *salsa20Stream) XORKeyStream(dst, src []byte) {
 	s.pos = len(dst) - n*blocksize
 	base := 0
 	for i := 0; i < n; i++ {
-		//log.Println("f4")
+		log.Println("f4")
 		xor.BytesSrc1(dst[base:base+blocksize], src[base:base+blocksize], tbl)
+		log.Println("dst0", dst[base:base+blocksize])
 		salsa20.XORKeyStream(tbl, dst[base:base+blocksize], s.nonce, &s.key)
-		//log.Println(tbl)
+		log.Println("tbl", tbl)
 		base += blocksize
 	}
 	if s.pos > 0 {
 		// 因为要满 16 byte 再加密一次，所以未满 16 字节的，要保留到下次加密
-
-		//log.Println("f5", s.pos, base)
+		log.Println("f5", s.pos, base, "tbl", tbl[0:s.pos])
 		xor.BytesSrc0(dst[base:], src[base:], tbl[0:s.pos])
 		copy(s.dst[0:s.pos], dst[base:])
-		//log.Println(s.dst)
+		log.Println("dst1", s.dst[base:])
 	}
 }

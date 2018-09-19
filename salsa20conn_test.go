@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"io"
+	"log"
 	"testing"
 )
 
@@ -27,11 +28,14 @@ func TestSalsa20Stream(t *testing.T) {
 
 	s := "12345string54321string"
 	b0 := []byte(s)
+	log.Println("b0", b0)
 	b1 := make([]byte, len(b0))
 	b2 := make([]byte, len(b0))
 
 	enc.XORKeyStream(b1, b0)
+	log.Println("b1", b1)
 	dec.XORKeyStream(b2, b1)
+	log.Println("b2", b2)
 
 	if !bytes.Equal(b2, b0) {
 		t.Fail()
