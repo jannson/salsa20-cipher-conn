@@ -19,8 +19,8 @@ func newSalsa20CipherPair() (cipher.Stream, cipher.Stream) {
 	io.ReadFull(rand.Reader, nonce)
 	io.ReadFull(rand.Reader, iv)
 
-	enc := newSalsa20Stream(key, nonce, iv, true)
-	dec := newSalsa20Stream(key, nonce, iv, false)
+	enc := NewSalsa20Stream(key, nonce, iv, true)
+	dec := NewSalsa20Stream(key, nonce, iv, false)
 	return enc, dec
 }
 

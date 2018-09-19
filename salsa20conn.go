@@ -29,7 +29,7 @@ func init() {
 	salsa20XorFuncs[1] = salsa20XORKeyStreamEnc
 }
 
-func newSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stream {
+func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stream {
 	buf := make([]byte, blocksize*3)
 	s := &salsa20Stream{
 		nonce: make([]byte, 8),
