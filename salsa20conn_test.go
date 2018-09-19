@@ -5,39 +5,90 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"io"
-	"log"
 	"testing"
 )
 
 func newSalsa20CipherPair() (cipher.Stream, cipher.Stream) {
 	key := make([]byte, 32)
 	nonce := make([]byte, 8)
-	iv := make([]byte, 16)
+	iv := make([]byte, blocksize)
 
 	io.ReadFull(rand.Reader, key)
 	io.ReadFull(rand.Reader, nonce)
 	io.ReadFull(rand.Reader, iv)
 
-	enc := newSalsa20Stream(key, nonce, iv)
-	dec := newSalsa20Stream(key, nonce, iv)
+	enc := newSalsa20Stream(key, nonce, iv, true)
+	dec := newSalsa20Stream(key, nonce, iv, false)
 	return enc, dec
 }
 
-func TestSalsa20Stream(t *testing.T) {
+func testSizeCounter(size int, cs1 []int, cs2 []int, t *testing.T) {
 	enc, dec := newSalsa20CipherPair()
 
-	s := "12345string54321string"
-	b0 := []byte(s)
-	log.Println("b0", b0)
+	b0 := make([]byte, size)
+	io.ReadFull(rand.Reader, b0)
+
 	b1 := make([]byte, len(b0))
 	b2 := make([]byte, len(b0))
 
-	enc.XORKeyStream(b1, b0)
-	log.Println("b1", b1)
-	dec.XORKeyStream(b2, b1)
-	log.Println("b2", b2)
+	for i := 1; i < len(cs1); i++ {
+		enc.XORKeyStream(b1[cs1[i-1]:cs1[i]], b0[cs1[i-1]:cs1[i]])
+	}
+
+	for i := 1; i < len(cs2); i++ {
+		dec.XORKeyStream(b2[cs2[i-1]:cs2[i]], b1[cs2[i-1]:cs2[i]])
+	}
 
 	if !bytes.Equal(b2, b0) {
 		t.Fail()
 	}
+}
+
+func TestSalsa20Bytes10(t *testing.T) {
+	size := 10
+	cs1 := []int{0, size}
+	cs2 := []int{0, size}
+
+	testSizeCounter(size, cs1, cs2, t)
+}
+
+func TestSalsa20Bytes16(t *testing.T) {
+	size := 16
+	cs1 := []int{0, size}
+	cs2 := []int{0, size}
+
+	testSizeCounter(size, cs1, cs2, t)
+}
+
+func TestSalsa20Bytes22(t *testing.T) {
+	size := 22
+	cs1 := []int{0, size}
+	cs2 := []int{0, size}
+
+	testSizeCounter(size, cs1, cs2, t)
+}
+
+func TestSalsa20Bytes92(t *testing.T) {
+	size := 92
+	cs1 := []int{0, size}
+	cs2 := []int{0, size}
+
+	testSizeCounter(size, cs1, cs2, t)
+}
+
+func TestSalsa20Count18(t *testing.T) {
+	size := 18
+	cs1 := []int{0, 5, size}
+
+	testSizeCounter(size, cs1, cs1, t)
+
+}
+
+func TestSalsa20Count92(t *testing.T) {
+	size := 92
+	cs1 := []int{0, 5, 10, 11, 30, 80, size}
+	cs2 := []int{0, 30, 36, 56, 60, size}
+
+	testSizeCounter(size, cs1, cs2, t)
+
 }
