@@ -84,6 +84,8 @@ func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
 		// 表示上次加密，遗留了一下未满 blocksize 字节的数据，需要在这里完成遗留的数据的加密
 		left := blocksize - s.pos
 		if n < left {
+			//如果 blocksize==16，用下面这一行没问题，如果 blocksize==32，用下面这一行则有问题
+			//但用 safeXORBytes  则都没有问题
 			//xor.BytesSrc0(dst, src, tbl[s.pos:]) Error if use this line
 			safeXORBytes(dst, src, tbl[s.pos:], len(src))
 			copy(s.pb[s.pos:s.pos+n], dst[0:n])
@@ -120,7 +122,9 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 	if s.pos > 0 {
 		left := blocksize - s.pos
 		if n < left {
-			//xor.BytesSrc0(dst, src, s.tbl[s.pos:s.pos+n]) Error if use this line
+			//如果 blocksize==16，用下面这一行没问题，如果 blocksize==32，用下面这一行则有问题
+			//但用 safeXORBytes  则都没有问题
+			//xor.BytesSrc0(dst, src, s.tbl[s.pos:s.pos+n])
 			safeXORBytes(dst, src, s.tbl[s.pos:], len(src))
 			copy(s.pb[s.pos:s.pos+n], src[0:n])
 			s.pos += n
