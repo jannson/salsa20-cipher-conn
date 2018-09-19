@@ -41,6 +41,8 @@ func (s *salsa20Stream) XORKeyStream(dst, src []byte) {
 	n := len(dst)
 	tbl := s.buf
 	if s.pos > 0 {
+		// 表示上次加密，遗留了一下未满 16 字节的数据，需要在这里完成遗留的数据的加密
+
 		left := blocksize - s.pos
 		if n < left {
 			//log.Println("f1", s.pos, n)
@@ -78,6 +80,8 @@ func (s *salsa20Stream) XORKeyStream(dst, src []byte) {
 		base += blocksize
 	}
 	if s.pos > 0 {
+		// 因为要满 16 byte 再加密一次，所以未满 16 字节的，要保留到下次加密
+
 		//log.Println("f5", s.pos, base)
 		xor.BytesSrc0(dst[base:], src[base:], tbl[0:s.pos])
 		copy(s.dst[0:s.pos], dst[base:])
