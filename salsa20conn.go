@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/salsa20"
 )
 
-const blocksize = 16
+const blocksize = 32
 
 type salsa20Stream struct {
 	nonce []byte
@@ -55,25 +55,43 @@ func newSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stre
 	return s
 }
 
+func safeXORBytes(dst, a, b []byte, n int) {
+	ex := n % 8
+	for i := 0; i < ex; i++ {
+		dst[i] = a[i] ^ b[i]
+	}
+
+	for i := ex; i < n; i += 8 {
+		_dst := dst[i : i+8]
+		_a := a[i : i+8]
+		_b := b[i : i+8]
+		_dst[0] = _a[0] ^ _b[0]
+		_dst[1] = _a[1] ^ _b[1]
+		_dst[2] = _a[2] ^ _b[2]
+		_dst[3] = _a[3] ^ _b[3]
+
+		_dst[4] = _a[4] ^ _b[4]
+		_dst[5] = _a[5] ^ _b[5]
+		_dst[6] = _a[6] ^ _b[6]
+		_dst[7] = _a[7] ^ _b[7]
+	}
+}
+
 func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
-	n := len(dst)
+	n := len(src)
 	tbl := s.tbl
 	if s.pos > 0 {
-		// 表示上次加密，遗留了一下未满 16 字节的数据，需要在这里完成遗留的数据的加密
+		// 表示上次加密，遗留了一下未满 blocksize 字节的数据，需要在这里完成遗留的数据的加密
 		left := blocksize - s.pos
 		if n < left {
-			xor.BytesSrc0(dst[0:n], src[0:n], tbl[s.pos:s.pos+n])
+			//xor.BytesSrc0(dst, src, tbl[s.pos:]) Error if use this line
+			safeXORBytes(dst, src, tbl[s.pos:], len(src))
 			copy(s.pb[s.pos:s.pos+n], dst[0:n])
 			s.pos += n
-			if s.pos == blocksize {
-				//new encrypt
-				salsa20.XORKeyStream(tbl, s.pb, s.nonce, &s.key)
-				s.pos = 0
-			}
 			return
 		}
 
-		xor.BytesSrc0(dst[0:left], src[0:left], tbl[s.pos:blocksize])
+		xor.BytesSrc1(dst, src, tbl[s.pos:])
 		copy(s.pb[s.pos:blocksize], dst[0:left])
 		dst = dst[left:]
 		src = src[left:]
@@ -86,13 +104,13 @@ func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
 	s.pos = len(dst) - n*blocksize
 	base := 0
 	for i := 0; i < n; i++ {
-		xor.BytesSrc1(dst[base:base+blocksize], src[base:base+blocksize], tbl)
+		xor.BytesSrc1(dst[base:], src[base:], tbl)
 		salsa20.XORKeyStream(tbl, dst[base:base+blocksize], s.nonce, &s.key)
 		base += blocksize
 	}
 	if s.pos > 0 {
-		// 因为要满 16 byte 再加密一次，所以未满 16 字节的，要保留到下次加密
-		xor.BytesSrc0(dst[base:], src[base:], tbl[0:s.pos])
+		// 因为要满 blocksize 再加密一次，所以未满 blocksize 字节的，要保留到下次加密
+		xor.BytesSrc0(dst[base:], src[base:], tbl)
 		copy(s.pb[0:s.pos], dst[base:])
 	}
 }
@@ -102,19 +120,15 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 	if s.pos > 0 {
 		left := blocksize - s.pos
 		if n < left {
-			xor.BytesSrc0(dst[0:n], src[0:n], s.tbl[s.pos:s.pos+n])
+			//xor.BytesSrc0(dst, src, s.tbl[s.pos:s.pos+n]) Error if use this line
+			safeXORBytes(dst, src, s.tbl[s.pos:], len(src))
 			copy(s.pb[s.pos:s.pos+n], src[0:n])
 			s.pos += n
-			if s.pos == blocksize {
-				salsa20.XORKeyStream(s.next, s.pb, s.nonce, &s.key)
-				s.tbl, s.next = s.next, s.tbl
-				s.pos = 0
-			}
 
 			return
 		}
 
-		xor.BytesSrc0(dst[0:left], src[0:left], s.tbl[s.pos:blocksize])
+		xor.BytesSrc1(dst, src, s.tbl[s.pos:])
 		copy(s.pb[s.pos:blocksize], src[0:left])
 		dst = dst[left:]
 		src = src[left:]
@@ -132,15 +146,15 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 		//先把密文解密
 		salsa20.XORKeyStream(next, src[base:base+blocksize], s.nonce, &s.key)
 		//xor 得到原始数据
-		xor.BytesSrc1(dst[base:base+blocksize], src[base:base+blocksize], tbl)
+		xor.BytesSrc1(dst[base:], src[base:], tbl)
 		tbl, next = next, tbl
 		base += blocksize
 	}
 	s.tbl = tbl
 	s.next = next
 	if s.pos > 0 {
-		// 因为要满 16 byte 再加密一次，所以未满 16 字节的，要保留到下次加密
-		xor.BytesSrc0(dst[base:], src[base:], tbl[0:s.pos])
+		// 因为要满 blocksize byte 再加密一次，所以未满 blocksize 字节的，要保留到下次加密
+		xor.BytesSrc0(dst[base:], src[base:], tbl)
 		copy(s.pb[0:s.pos], src[base:])
 	}
 }

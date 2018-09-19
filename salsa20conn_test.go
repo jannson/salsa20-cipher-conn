@@ -86,7 +86,7 @@ func TestSalsa20Count18(t *testing.T) {
 
 func TestSalsa20Count92(t *testing.T) {
 	size := 92
-	cs1 := []int{0, 5, 10, 11, 30, 80, size}
+	cs1 := []int{0, 2, 3, 11, 12, 30, 80, size}
 	cs2 := []int{0, 30, 36, 56, 60, size}
 
 	testSizeCounter(size, cs1, cs2, t)
