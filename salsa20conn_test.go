@@ -28,6 +28,24 @@ func newSalsa20CipherPair() (cipher.Stream, cipher.Stream) {
 	return enc, dec
 }
 
+func newSalsa20BlockCipherPair() (cipher.Stream, cipher.Stream) {
+	key := make([]byte, 32)
+	nonce := make([]byte, 8)
+	iv := make([]byte, blocksize)
+
+	io.ReadFull(rand.Reader, key)
+	io.ReadFull(rand.Reader, nonce)
+	io.ReadFull(rand.Reader, iv)
+
+	block1 := NewSalsa20Block(key, nonce)
+	enc := cipher.NewCFBEncrypter(block1, iv)
+
+	block2 := NewSalsa20Block(key, nonce)
+	dec := cipher.NewCFBDecrypter(block2, iv)
+
+	return enc, dec
+}
+
 func newSalsa20Iv16CipherPair() (cipher.Stream, cipher.Stream) {
 	key := make([]byte, 32)
 	nonce := make([]byte, 8)
@@ -42,8 +60,7 @@ func newSalsa20Iv16CipherPair() (cipher.Stream, cipher.Stream) {
 	return enc, dec
 }
 
-func testSizeCounter(size int, cs1 []int, cs2 []int, t *testing.T) {
-	enc, dec := newSalsa20CipherPair()
+func testSizeCounterWithPair(enc, dec cipher.Stream, size int, cs1 []int, cs2 []int, t *testing.T) {
 
 	b0 := make([]byte, size)
 	io.ReadFull(rand.Reader, b0)
@@ -64,26 +81,19 @@ func testSizeCounter(size int, cs1 []int, cs2 []int, t *testing.T) {
 	}
 }
 
+func testSizeCounter(size int, cs1 []int, cs2 []int, t *testing.T) {
+	enc, dec := newSalsa20CipherPair()
+	testSizeCounterWithPair(enc, dec, size, cs1, cs2, t)
+}
+
 func testSizeIv16Counter(size int, cs1 []int, cs2 []int, t *testing.T) {
 	enc, dec := newSalsa20Iv16CipherPair()
+	testSizeCounterWithPair(enc, dec, size, cs1, cs2, t)
+}
 
-	b0 := make([]byte, size)
-	io.ReadFull(rand.Reader, b0)
-
-	b1 := make([]byte, len(b0))
-	b2 := make([]byte, len(b0))
-
-	for i := 1; i < len(cs1); i++ {
-		enc.XORKeyStream(b1[cs1[i-1]:cs1[i]], b0[cs1[i-1]:cs1[i]])
-	}
-
-	for i := 1; i < len(cs2); i++ {
-		dec.XORKeyStream(b2[cs2[i-1]:cs2[i]], b1[cs2[i-1]:cs2[i]])
-	}
-
-	if !bytes.Equal(b2, b0) {
-		t.Fail()
-	}
+func testBlockCounter(size int, cs1 []int, cs2 []int, t *testing.T) {
+	enc, dec := newSalsa20BlockCipherPair()
+	testSizeCounterWithPair(enc, dec, size, cs1, cs2, t)
 }
 
 func TestSalsa20Bytes10(t *testing.T) {
@@ -174,6 +184,18 @@ func TestSalsa20CountRandomIv16(t *testing.T) {
 	testSizeIv16Counter(size, cs1, cs2, t)
 }
 
+func TestSalsa20BlockCountRandom(t *testing.T) {
+	size := 1024 * 1024
+	n1 := 10 + (mrand.Intn(10))
+	n2 := 9 + (mrand.Intn(20))
+
+	//加密的顺序与解密的顺序完全不一样的测试
+	cs1 := genRandomSlice(size, n1)
+	cs2 := genRandomSlice(size, n2)
+
+	testBlockCounter(size, cs1, cs2, t)
+}
+
 func TestXor(t *testing.T) {
 	size := 92
 	b0 := make([]byte, size)
@@ -216,5 +238,10 @@ func BenchmarkAES(b *testing.B) {
 
 func BenchmarkSalsa20(b *testing.B) {
 	enc, dec := newSalsa20CipherPair()
+	benchCrypt(b, enc, dec)
+}
+
+func BenchmarkSalsa20Block(b *testing.B) {
+	enc, dec := newSalsa20BlockCipherPair()
 	benchCrypt(b, enc, dec)
 }

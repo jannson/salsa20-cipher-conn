@@ -175,3 +175,27 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 func (s *salsa20Stream) XORKeyStream(dst, src []byte) {
 	salsa20XorFuncs[s.enc](s, dst, src)
 }
+
+type salsa20Block struct {
+	key   [32]byte
+	nonce [8]byte
+}
+
+func (s *salsa20Block) Encrypt(dst, src []byte) {
+	salsa20.XORKeyStream(dst, src, s.nonce[:], &s.key)
+}
+
+func (s *salsa20Block) Decrypt(dst, src []byte) {
+	salsa20.XORKeyStream(dst, src, s.nonce[:], &s.key)
+}
+
+func (s *salsa20Block) BlockSize() int {
+	return blocksize
+}
+
+func NewSalsa20Block(key []byte, nonce []byte) cipher.Block {
+	s := new(salsa20Block)
+	copy(s.key[:], key)
+	copy(s.nonce[:], nonce)
+	return s
+}
