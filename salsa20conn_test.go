@@ -1,4 +1,4 @@
-package salsa20conn
+package salsa20stream
 
 import (
 	"bytes"
