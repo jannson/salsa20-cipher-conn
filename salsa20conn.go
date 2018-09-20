@@ -13,15 +13,18 @@ const blocksize = 1024
 const salt = `sH3CIVoF#rWLtJo6`
 
 type salsa20Stream struct {
-	nonce []byte
+	key   [32]byte
+	nonce [8]byte
+	//tbl 记录上次 salsa20 加密之后的结果值
 	//当前可以用于 xor 的数据
 	tbl []byte
 	//salsa20 解密之后的数据
 	next []byte
-	pb   []byte
-	pos  int
-	key  [32]byte
-	enc  int
+	//pb 记录上次加解密之后，未形成整块的值
+	pb []byte
+	// 记录当前的位置
+	pos int
+	enc int
 }
 type fSalsa20Xor func(s *salsa20Stream, dst, src []byte)
 
@@ -57,17 +60,13 @@ func safeXORBytes(dst, a, b []byte, n int) {
 func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stream {
 	buf := make([]byte, blocksize*3)
 	s := &salsa20Stream{
-		nonce: make([]byte, 8),
-		//tbl 记录上次 salsa20 加密之后的结果值
 		tbl:  buf[0:blocksize],
 		next: buf[blocksize : blocksize*2],
-		//pb 记录上次加解密之后，未形成整块的值
-		pb: buf[blocksize*2 : blocksize*3],
-		// 记录当前的位置
-		pos: 0,
+		pb:   buf[blocksize*2 : blocksize*3],
+		pos:  0,
 	}
 	copy(s.key[:], s.key[:32])
-	copy(s.nonce, s.nonce[:8])
+	copy(s.nonce[:], s.nonce[:8])
 	if enc {
 		s.enc = 1
 	} else {
@@ -78,7 +77,7 @@ func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stre
 		iv = pbkdf2.Key(iv, []byte(salt), 16, blocksize, sha1.New)
 	}
 
-	salsa20.XORKeyStream(s.tbl, iv, s.nonce, &s.key)
+	salsa20.XORKeyStream(s.tbl, iv, s.nonce[:], &s.key)
 
 	return s
 }
@@ -106,7 +105,7 @@ func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
 		src = src[left:]
 
 		//new encrypt
-		salsa20.XORKeyStream(tbl, s.pb, s.nonce, &s.key)
+		salsa20.XORKeyStream(tbl, s.pb, s.nonce[:], &s.key)
 	}
 
 	n = len(dst) / blocksize
@@ -114,7 +113,7 @@ func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
 	base := 0
 	for i := 0; i < n; i++ {
 		xor.BytesSrc1(dst[base:], src[base:], tbl)
-		salsa20.XORKeyStream(tbl, dst[base:base+blocksize], s.nonce, &s.key)
+		salsa20.XORKeyStream(tbl, dst[base:base+blocksize], s.nonce[:], &s.key)
 		base += blocksize
 	}
 	if s.pos > 0 {
@@ -146,7 +145,7 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 		dst = dst[left:]
 		src = src[left:]
 
-		salsa20.XORKeyStream(s.next, s.pb, s.nonce, &s.key)
+		salsa20.XORKeyStream(s.next, s.pb, s.nonce[:], &s.key)
 		s.tbl, s.next = s.next, s.tbl
 	}
 
@@ -157,7 +156,7 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 	base := 0
 	for i := 0; i < n; i++ {
 		//先把密文解密
-		salsa20.XORKeyStream(next, src[base:base+blocksize], s.nonce, &s.key)
+		salsa20.XORKeyStream(next, src[base:base+blocksize], s.nonce[:], &s.key)
 		//xor 得到原始数据
 		xor.BytesSrc1(dst[base:], src[base:], tbl)
 		tbl, next = next, tbl
