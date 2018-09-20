@@ -8,8 +8,6 @@ import (
 	"io"
 	mrand "math/rand"
 	"testing"
-
-	"github.com/templexxx/xor"
 )
 
 const mtuLimit = 4 * 1024 * 1024
@@ -196,7 +194,7 @@ func TestSalsa20BlockCountRandom(t *testing.T) {
 	testBlockCounter(size, cs1, cs2, t)
 }
 
-func TestXor(t *testing.T) {
+/*func TestXor(t *testing.T) {
 	size := 92
 	b0 := make([]byte, size)
 	b1 := make([]byte, size)
@@ -207,7 +205,7 @@ func TestXor(t *testing.T) {
 	io.ReadFull(rand.Reader, b2)
 
 	xor.BytesSrc0(b0[30:], b1[31:], b2[:29])
-}
+}*/
 
 func benchCrypt(b *testing.B, sEnc, sDec cipher.Stream) {
 	b.ReportAllocs()
