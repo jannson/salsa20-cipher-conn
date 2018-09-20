@@ -28,8 +28,44 @@ func newSalsa20CipherPair() (cipher.Stream, cipher.Stream) {
 	return enc, dec
 }
 
+func newSalsa20Iv16CipherPair() (cipher.Stream, cipher.Stream) {
+	key := make([]byte, 32)
+	nonce := make([]byte, 8)
+	iv := make([]byte, 16)
+
+	io.ReadFull(rand.Reader, key)
+	io.ReadFull(rand.Reader, nonce)
+	io.ReadFull(rand.Reader, iv)
+
+	enc := NewSalsa20Stream(key, nonce, iv, true)
+	dec := NewSalsa20Stream(key, nonce, iv, false)
+	return enc, dec
+}
+
 func testSizeCounter(size int, cs1 []int, cs2 []int, t *testing.T) {
 	enc, dec := newSalsa20CipherPair()
+
+	b0 := make([]byte, size)
+	io.ReadFull(rand.Reader, b0)
+
+	b1 := make([]byte, len(b0))
+	b2 := make([]byte, len(b0))
+
+	for i := 1; i < len(cs1); i++ {
+		enc.XORKeyStream(b1[cs1[i-1]:cs1[i]], b0[cs1[i-1]:cs1[i]])
+	}
+
+	for i := 1; i < len(cs2); i++ {
+		dec.XORKeyStream(b2[cs2[i-1]:cs2[i]], b1[cs2[i-1]:cs2[i]])
+	}
+
+	if !bytes.Equal(b2, b0) {
+		t.Fail()
+	}
+}
+
+func testSizeIv16Counter(size int, cs1 []int, cs2 []int, t *testing.T) {
+	enc, dec := newSalsa20Iv16CipherPair()
 
 	b0 := make([]byte, size)
 	io.ReadFull(rand.Reader, b0)
@@ -124,6 +160,18 @@ func TestSalsa20CountRandom(t *testing.T) {
 
 	testSizeCounter(size, cs1, cs2, t)
 
+}
+
+func TestSalsa20CountRandomIv16(t *testing.T) {
+	size := 1024 * 1024
+	n1 := 10 + (mrand.Intn(10))
+	n2 := 9 + (mrand.Intn(20))
+
+	//加密的顺序与解密的顺序完全不一样的测试
+	cs1 := genRandomSlice(size, n1)
+	cs2 := genRandomSlice(size, n2)
+
+	testSizeIv16Counter(size, cs1, cs2, t)
 }
 
 func TestXor(t *testing.T) {
