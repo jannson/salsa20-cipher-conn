@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/salsa20"
 )
 
-const blocksize = 64
+const blocksize = 128
 
 type salsa20Stream struct {
 	nonce []byte
@@ -86,7 +86,7 @@ func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
 		if n < left {
 			//如果 blocksize==16，用下面这一行没问题，如果 blocksize==32，用下面这一行则有问题
 			//但用 safeXORBytes  则都没有问题
-			//xor.BytesSrc0(dst, src, tbl[s.pos:]) Error if use this line
+			//xor.BytesSrc0(dst, src, tbl[s.pos:]) //Error if use this line
 			safeXORBytes(dst, src, tbl[s.pos:], len(src))
 			copy(s.pb[s.pos:s.pos+n], dst[0:n])
 			s.pos += n
