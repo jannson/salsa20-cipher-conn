@@ -2,12 +2,15 @@ package salsa20conn
 
 import (
 	"crypto/cipher"
+	"crypto/sha1"
 
 	"github.com/templexxx/xor"
+	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/salsa20"
 )
 
-const blocksize = 128
+const blocksize = 1024
+const salt = `sH3CIVoF#rWLtJo6`
 
 type salsa20Stream struct {
 	nonce []byte
@@ -27,32 +30,6 @@ var salsa20XorFuncs [2]fSalsa20Xor
 func init() {
 	salsa20XorFuncs[0] = salsa20XORKeyStreamDec
 	salsa20XorFuncs[1] = salsa20XORKeyStreamEnc
-}
-
-func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stream {
-	buf := make([]byte, blocksize*3)
-	s := &salsa20Stream{
-		nonce: make([]byte, 8),
-		//tbl 记录上次 salsa20 加密之后的结果值
-		tbl:  buf[0:blocksize],
-		next: buf[blocksize : blocksize*2],
-		//pb 记录上次加解密之后，未形成整块的值
-		pb: buf[blocksize*2 : blocksize*3],
-		// 记录当前的位置
-		pos: 0,
-	}
-	copy(s.key[:], s.key[:32])
-	copy(s.nonce, s.nonce[:8])
-
-	if enc {
-		s.enc = 1
-	} else {
-		s.enc = 0
-	}
-
-	salsa20.XORKeyStream(s.tbl, iv[:blocksize], s.nonce, &s.key)
-
-	return s
 }
 
 func safeXORBytes(dst, a, b []byte, n int) {
@@ -75,6 +52,35 @@ func safeXORBytes(dst, a, b []byte, n int) {
 		_dst[6] = _a[6] ^ _b[6]
 		_dst[7] = _a[7] ^ _b[7]
 	}
+}
+
+func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stream {
+	buf := make([]byte, blocksize*3)
+	s := &salsa20Stream{
+		nonce: make([]byte, 8),
+		//tbl 记录上次 salsa20 加密之后的结果值
+		tbl:  buf[0:blocksize],
+		next: buf[blocksize : blocksize*2],
+		//pb 记录上次加解密之后，未形成整块的值
+		pb: buf[blocksize*2 : blocksize*3],
+		// 记录当前的位置
+		pos: 0,
+	}
+	copy(s.key[:], s.key[:32])
+	copy(s.nonce, s.nonce[:8])
+	if enc {
+		s.enc = 1
+	} else {
+		s.enc = 0
+	}
+
+	if len(iv) < blocksize {
+		iv = pbkdf2.Key(iv, []byte(salt), 16, blocksize, sha1.New)
+	}
+
+	salsa20.XORKeyStream(s.tbl, iv, s.nonce, &s.key)
+
+	return s
 }
 
 func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {

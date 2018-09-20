@@ -6,7 +6,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"io"
-	"log"
 	mrand "math/rand"
 	"testing"
 
@@ -122,8 +121,6 @@ func TestSalsa20CountRandom(t *testing.T) {
 	//加密的顺序与解密的顺序完全不一样的测试
 	cs1 := genRandomSlice(size, n1)
 	cs2 := genRandomSlice(size, n2)
-	log.Println(cs1)
-	log.Println(cs2)
 
 	testSizeCounter(size, cs1, cs2, t)
 
