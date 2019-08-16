@@ -12,7 +12,7 @@ import (
 const blocksize = 1024
 const salt = `sH3CIVoF#rWLtJo6`
 
-type salsa20Stream struct {
+type Salsa20Stream struct {
 	key   [32]byte
 	nonce [8]byte
 	//tbl 记录上次 salsa20 加密之后的结果值
@@ -26,7 +26,7 @@ type salsa20Stream struct {
 	pos int
 	enc int
 }
-type fSalsa20Xor func(s *salsa20Stream, dst, src []byte)
+type fSalsa20Xor func(s *Salsa20Stream, dst, src []byte)
 
 var salsa20XorFuncs [2]fSalsa20Xor
 
@@ -42,9 +42,9 @@ func simxor(dst, a, b []byte) {
 	xor.Encode(dst, src[:])
 }
 
-func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stream {
+func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) *Salsa20Stream {
 	buf := make([]byte, blocksize*3)
-	s := &salsa20Stream{
+	s := &Salsa20Stream{
 		tbl:  buf[0:blocksize],
 		next: buf[blocksize : blocksize*2],
 		pb:   buf[blocksize*2 : blocksize*3],
@@ -67,7 +67,7 @@ func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) cipher.Stre
 	return s
 }
 
-func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
+func salsa20XORKeyStreamEnc(s *Salsa20Stream, dst, src []byte) {
 	n := len(src)
 	tbl := s.tbl
 	if s.pos > 0 {
@@ -103,7 +103,7 @@ func salsa20XORKeyStreamEnc(s *salsa20Stream, dst, src []byte) {
 	}
 }
 
-func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
+func salsa20XORKeyStreamDec(s *Salsa20Stream, dst, src []byte) {
 	n := len(src)
 	if s.pos > 0 {
 		left := blocksize - s.pos
@@ -147,8 +147,12 @@ func salsa20XORKeyStreamDec(s *salsa20Stream, dst, src []byte) {
 	}
 }
 
-func (s *salsa20Stream) XORKeyStream(dst, src []byte) {
+func (s *Salsa20Stream) XORKeyStream(dst, src []byte) {
 	salsa20XorFuncs[s.enc](s, dst, src)
+}
+
+func (s *Salsa20Stream) GetTbl() []byte {
+	return s.tbl
 }
 
 type salsa20Block struct {
