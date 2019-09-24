@@ -50,6 +50,7 @@ func NewSalsa20Stream(key []byte, nonce []byte, iv []byte, enc bool) *Salsa20Str
 		pb:   buf[blocksize*2 : blocksize*3],
 		pos:  0,
 	}
+	// TODO BUG here, should be copy(s.key[:], key[:32])
 	copy(s.key[:], s.key[:32])
 	copy(s.nonce[:], s.nonce[:8])
 	if enc {
